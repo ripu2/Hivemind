@@ -1,0 +1,25 @@
+[project]
+name = "text-qa"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "beautifulsoup4>=4.14.3",
+    "black>=26.3.1",
+    "boto3>=1.42.77",
+    "fastapi>=0.135.2",
+    "langchain>=1.2.13",
+    "langchain-classic>=1.0.3",
+    "langchain-core>=1.2.22",
+    "langchain-openai>=1.1.12",
+    "langchain-text-splitters>=1.1.1",
+    "pandas>=3.0.1",
+    "psycopg2-binary>=2.9.11",
+    "pydantic>=2.12.5",
+    "requests>=2.33.0",
+    "uvicorn[standard]>=0.42.0",
+    "pinecone>=6.0.0",
+    "langchain-pinecone>=0.2.0",
+    "langchain-community>=0.3.0",
+]
