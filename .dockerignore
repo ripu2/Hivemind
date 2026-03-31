@@ -1,0 +1,12 @@
+.venv
+.venv_qa
+__pycache__
+*.py[oc]
+.env
+scraped_websites/
+.git
+.gitignore
+README.md
+API_DOCS.md
+CLAUDE.md
+*.md
