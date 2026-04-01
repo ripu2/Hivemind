@@ -19,7 +19,8 @@ _PROMPT = ChatPromptTemplate.from_messages([
         "structured answers based strictly on the retrieved context below.\n\n"
         "How to structure your answer:\n"
         "- Start with a one-sentence summary of what the answer covers.\n"
-        "- If there are prerequisites, permissions, or prior setup needed, list them first under a '## Prerequisites' section.\n"
+        "- Under '## Prerequisites': only list things the user must have set up BEFORE doing what they just asked about. "
+        "Do not list prerequisites for unrelated tasks. If none, omit this section entirely.\n"
         "- Break the answer into clear sections with markdown headers (##).\n"
         "- For any procedure or how-to, list every step in order under '## Steps', numbered, with no steps skipped.\n"
         "- Include exact values, field names, button labels, or code snippets from the context — do not paraphrase them.\n"
@@ -31,12 +32,25 @@ _PROMPT = ChatPromptTemplate.from_messages([
         "'I don't have enough information in the indexed documents to answer that fully.' "
         "Then list what partial information you do have.\n"
         "3. Never invent URLs, file paths, config keys, or code not present in the context.\n"
-        "4. If the user refers to something from earlier in the conversation, use the chat "
-        "history to resolve what they mean — but ground the answer in the context.\n\n"
+        "4. The conversation history shows what was already discussed. Use it to understand "
+        "follow-up questions and to tailor your answer to what the user already knows — "
+        "avoid repeating details already covered unless the user asks again.\n\n"
         "Retrieved context:\n"
         "-----\n"
         "{context}\n"
         "-----",
+    ),
+    MessagesPlaceholder(variable_name="history"),
+    ("human", "{question}"),
+])
+
+_REFORMULATE_PROMPT = ChatPromptTemplate.from_messages([
+    (
+        "system",
+        "Given the conversation history below and the user's latest question, rewrite the question "
+        "as a single fully self-contained search query that captures what the user is actually asking about. "
+        "If the question is already standalone and clear, return it as-is. "
+        "Output only the rewritten query, nothing else.",
     ),
     MessagesPlaceholder(variable_name="history"),
     ("human", "{question}"),
@@ -108,12 +122,6 @@ class QueryService:
             conversation_id = self.conversation_repo.create_conversation()
             messages = []
 
-        # ── Retrieve relevant chunks from Pinecone ─────────────────────────
-        docs = self._search_namespaces(question, namespaces)
-
-        context = "\n\n---\n\n".join(doc.page_content for doc in docs) if docs else ""
-        sources = list({doc.metadata.get("source", "") for doc in docs if doc.metadata.get("source")})
-
         # ── Build history for the prompt ───────────────────────────────────
         history = []
         for msg in messages:
@@ -121,6 +129,23 @@ class QueryService:
                 history.append(HumanMessage(content=msg.content))
             else:
                 history.append(AIMessage(content=msg.content))
+
+        # ── Reformulate question using conversation history for better retrieval ──
+        search_query = question
+        if history:
+            try:
+                reformulate_chain = _REFORMULATE_PROMPT | self.llm
+                reformulated = reformulate_chain.invoke({"history": history, "question": question})
+                search_query = reformulated.content.strip()
+                log.info("Reformulated query: %r → %r", question, search_query)
+            except Exception:
+                log.warning("Query reformulation failed, falling back to original question")
+
+        # ── Retrieve relevant chunks from Pinecone ─────────────────────────
+        docs = self._search_namespaces(search_query, namespaces)
+
+        context = "\n\n---\n\n".join(doc.page_content for doc in docs) if docs else ""
+        sources = list({doc.metadata.get("source", "") for doc in docs if doc.metadata.get("source")})
 
         # ── Call LLM ───────────────────────────────────────────────────────
         chain = _PROMPT | self.llm
