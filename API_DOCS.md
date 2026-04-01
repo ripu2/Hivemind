@@ -1,9 +1,12 @@
 # API Reference
 
-Base URL: `http://localhost:8000`
+**Production base URL:** `https://hivemind-2f75.onrender.com`
+**Local base URL:** `http://localhost:8000`
 
 All request bodies must use `Content-Type: application/json`.
 All error responses follow `{"success": false, "error": "..."}`.
+
+> **Note for frontend developers:** The API does not currently enforce CORS restrictions. All origins are allowed in development. If you hit CORS issues in production, contact the backend team.
 
 ---
 
